@@ -1,0 +1,34 @@
+﻿#pragma kernel CSMain
+
+// Defines
+#define SIZEX 32
+#define SIZEY 32
+#define GROUPSIZE SIZEX*SIZEY
+
+groupshared int accumulator[GROUPSIZE];
+
+Texture2D<float> Overdraw;
+RWStructuredBuffer<int> Output;
+
+[numthreads(SIZEX,SIZEY,1)]
+void CSMain (uint3 gid : SV_GroupID, uint3 inp : SV_DispatchThreadID, uint gtidx : SV_GroupIndex)
+{
+	accumulator[gtidx] = (int)(Overdraw[inp.xy].x * 1024);
+	
+	// Wait for all
+	GroupMemoryBarrierWithGroupSync();
+	
+	[unroll]
+	for (uint ix = GROUPSIZE >> 1; ix > 0; ix = ix >> 1)
+	{
+		if (gtidx < ix)
+		{
+			accumulator[gtidx] = (accumulator[gtidx] + accumulator[gtidx + ix]);
+		}
+		GroupMemoryBarrierWithGroupSync();
+	}
+	
+	if (gtidx != 0) return;
+	
+	Output[gid.y * 128 + gid.x] = accumulator[0];
+}
