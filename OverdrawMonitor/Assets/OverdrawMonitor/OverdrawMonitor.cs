@@ -111,6 +111,7 @@ public class OverdrawMonitor : MonoBehaviour
 		for (int i = 0; i < inputData.Length; i++) inputData[i] = 0;
 	}
 
+#if UNITY_EDITOR
 	public void SubscribeToPlayStateChanged()
 	{
 		UnityEditor.EditorApplication.playmodeStateChanged -= OnPlayStateChanged;
@@ -119,13 +120,12 @@ public class OverdrawMonitor : MonoBehaviour
 
 	private static void OnPlayStateChanged()
 	{
-		Debug.Log(UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode + " " + UnityEditor.EditorApplication.isPlaying);
 		if (!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode && UnityEditor.EditorApplication.isPlaying)
 		{
-			//Debug.Log("EXiting");
 			if (instance != null) instance.OnDisable();
 		}
 	}
+#endif
 
 	private bool disabled = true;
 
@@ -137,7 +137,6 @@ public class OverdrawMonitor : MonoBehaviour
 	public void OnDisable()
 	{
 		disabled = true;
-		Debug.Log("On disable");
 		OnDestroy();
 	}
 
@@ -199,11 +198,9 @@ public class OverdrawMonitor : MonoBehaviour
 
 	public void OnDestroy()
 	{
-		Debug.Log("DESTROY");
 		if (camera != null)
 		{
 			camera.targetTexture = null;
-			Debug.Log("Setting camera texture to null");
 		}
 		if (resultBuffer != null) resultBuffer.Release();
 	}
