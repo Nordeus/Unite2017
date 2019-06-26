@@ -24,16 +24,10 @@ public class OverdrawToolWindow : EditorWindow
         {
             using (new GUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Start"))
+                if (GUILayout.Button("Reset stats"))
                 {
-                    OverdrawMonitor.Instance.StartMeasurement();
                     OverdrawMonitor.Instance.ResetSampling();
                     OverdrawMonitor.Instance.ResetExtremes();
-                }
-
-                if (GUILayout.Button("End"))
-                {
-                    OverdrawMonitor.Instance.Stop();
                 }
             }
 

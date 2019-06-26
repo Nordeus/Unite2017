@@ -125,6 +125,8 @@ public class OverdrawMonitor : MonoBehaviour
             accumulatedIntervalOverdraw = 0;
             intervalFrames = 0;
         }
+
+        _camera.enabled = true;
     }
 
     // Checks if the overdraw texture should be updated. This needs to happen if the main camera configuration changes.
@@ -166,7 +168,7 @@ public class OverdrawMonitor : MonoBehaviour
 
     void OnPostRender()
     {
-        if (overdrawTexture == null)
+        if (_camera.targetTexture == null)
             return;
 
         int kernel = computeShader.FindKernel("CSMain");
@@ -188,8 +190,8 @@ public class OverdrawMonitor : MonoBehaviour
 
         // Getting the results
         TotalShadedFragments = 0;
-        for (int i = 0; i < resultData.Length; i++)
-            TotalShadedFragments += resultData[i];
+        foreach (int res in resultData)
+            TotalShadedFragments += res;
 
         OverdrawRatio = (float)TotalShadedFragments / (xGroups * GroupDimension * yGroups * GroupDimension);
 
@@ -197,28 +199,11 @@ public class OverdrawMonitor : MonoBehaviour
         accumulatedIntervalOverdraw += OverdrawRatio;
         intervalFrames++;
 
-        if (OverdrawRatio > MaxOverdraw) MaxOverdraw = OverdrawRatio;
-    }
+        if (OverdrawRatio > MaxOverdraw)
+            MaxOverdraw = OverdrawRatio;
 
-    //
-    // Measurement control methods
-    //
-
-    public void StartMeasurement()
-    {
-        enabled = true;
-        GetComponent<Camera>().enabled = true;
-    }
-
-    public void Stop()
-    {
-        enabled = false;
-        GetComponent<Camera>().enabled = false;
-    }
-
-    public void SetSampleTime(float time)
-    {
-        SampleTime = time;
+        _camera.enabled = false;
+        _camera.targetTexture = null;
     }
 
     public void ResetSampling()
