@@ -41,6 +41,8 @@ public class OverdrawMonitor : MonoBehaviour
                 _cameraOverdrawMonitors.Add(cameraOverdrawMonitor);
             }
         }
+
+        _cameraOverdrawMonitors.RemoveAll(m => m == null);
     }
 
     public void ResetStats()
@@ -49,21 +51,8 @@ public class OverdrawMonitor : MonoBehaviour
             cameraOverdrawMonitor.ResetStats();
     }
 
-    public float GetMaxOverdraw(int index)
+    public CameraOverdrawMonitor GetCameraOverdrawMonitor(int index)
     {
-        CameraOverdrawMonitor cameraOverdrawMonitor = GetActiveMonitor(index);
-        return cameraOverdrawMonitor != null ? cameraOverdrawMonitor.MaxOverdraw : 0f;
-    }
-
-    public float GetAccumulatedAverageOverdraw(int index)
-    {
-        CameraOverdrawMonitor cameraOverdrawMonitor = GetActiveMonitor(index);
-        return cameraOverdrawMonitor != null ? cameraOverdrawMonitor.AccumulatedAverageOverdraw : 0f;
-    }
-
-    CameraOverdrawMonitor GetActiveMonitor(int index)
-    {
-        CameraOverdrawMonitor cameraOverdrawMonitor = _cameraOverdrawMonitors[index];
-        return cameraOverdrawMonitor != null && cameraOverdrawMonitor.isActiveAndEnabled ? cameraOverdrawMonitor : null;
+        return _cameraOverdrawMonitors[index];
     }
 }

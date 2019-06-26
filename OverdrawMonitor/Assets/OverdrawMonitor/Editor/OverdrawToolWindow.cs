@@ -28,11 +28,15 @@ public class OverdrawToolWindow : EditorWindow
 
             for (int i = 0; i < OverdrawMonitor.instance.camerasCount; i++)
             {
+                CameraOverdrawMonitor cameraOverdrawMonitor = OverdrawMonitor.instance.GetCameraOverdrawMonitor(i);
+                if (cameraOverdrawMonitor == null)
+                    continue;
+
                 using (new GUILayout.HorizontalScope())
                 {
-                    GUILayout.Label("Max\n" + OverdrawMonitor.instance.GetMaxOverdraw(i).ToString("0.000"));
+                    GUILayout.Label("Max\n" + cameraOverdrawMonitor.MaxOverdraw.ToString("0.000"));
                     GUILayout.FlexibleSpace();
-                    GUILayout.Label("Average\n" + OverdrawMonitor.instance.GetAccumulatedAverageOverdraw(i).ToString("0.000"));
+                    GUILayout.Label("Average\n" + (cameraOverdrawMonitor.isActiveAndEnabled ? cameraOverdrawMonitor.AccumulatedAverageOverdraw : 0f).ToString("0.000"));
                 }
             }
         }
