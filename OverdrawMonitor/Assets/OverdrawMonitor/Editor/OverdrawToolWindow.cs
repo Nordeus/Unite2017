@@ -1,8 +1,6 @@
 ﻿using UnityEditor;
 using UnityEngine;
 
-// A simple tool to track the exact amount of overdraw in the game window.
-// This tool only shows the result, see OverdrawMonitor to check out how this is implemented.
 public class OverdrawToolWindow : EditorWindow
 {
     [MenuItem("Tools/Overdraw Tool")]
@@ -25,17 +23,17 @@ public class OverdrawToolWindow : EditorWindow
             using (new GUILayout.HorizontalScope())
             {
                 if (GUILayout.Button("Reset stats"))
-                {
-                    OverdrawMonitor.Instance.ResetSampling();
-                    OverdrawMonitor.Instance.ResetExtremes();
-                }
+                    OverdrawMonitor.instance.ResetStats();
             }
 
-            using (new GUILayout.HorizontalScope())
+            for (int i = 0; i < OverdrawMonitor.instance.camerasCount; i++)
             {
-                GUILayout.Label("Max\n" + OverdrawMonitor.Instance.MaxOverdraw.ToString("0.000"));
-                GUILayout.FlexibleSpace();
-                GUILayout.Label("Average\n" + OverdrawMonitor.Instance.AccumulatedAverageOverdraw.ToString("0.000"));
+                using (new GUILayout.HorizontalScope())
+                {
+                    GUILayout.Label("Max\n" + OverdrawMonitor.instance.GetMaxOverdraw(i).ToString("0.000"));
+                    GUILayout.FlexibleSpace();
+                    GUILayout.Label("Average\n" + OverdrawMonitor.instance.GetAccumulatedAverageOverdraw(i).ToString("0.000"));
+                }
             }
         }
         else
