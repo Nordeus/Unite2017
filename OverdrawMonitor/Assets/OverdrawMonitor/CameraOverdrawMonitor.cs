@@ -65,6 +65,7 @@ public class CameraOverdrawMonitor : MonoBehaviour
         Shader.SetGlobalFloat("OverdrawFragmentWeight", 1f / (GroupDimension * GroupDimension));
 
         _computeCamera = gameObject.AddComponent<Camera>();
+        _computeCamera.enabled = false;
 
         _inputData = new int[DataSize];
         _resultData = new int[DataSize];
