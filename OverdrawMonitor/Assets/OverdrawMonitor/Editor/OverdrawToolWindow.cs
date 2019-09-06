@@ -5,14 +5,13 @@ using UnityEngine;
 class MonitorInfo
 {
     public Camera sourceCamera;
-    // public Canvas canvas;
     public CameraOverdrawMonitor monitor;
 }
 
 public class OverdrawToolWindow : EditorWindow
 {
-    static bool isEnabled => _monitorsRoot != null;
-    static Transform _monitorsRoot;
+    bool isEnabled => _monitorsRoot != null;
+    Transform _monitorsRoot;
     List<MonitorInfo> _monitors;
 
     [MenuItem("Tools/Overdraw Tool")]
@@ -80,11 +79,8 @@ public class OverdrawToolWindow : EditorWindow
 
     void CheckMonitor(MonitorInfo monitorInfo)
     {
-        if ((monitorInfo.sourceCamera == null || !monitorInfo.sourceCamera.isActiveAndEnabled)/* &&
-            monitorInfo.canvas == null || !monitorInfo.canvas.isActiveAndEnabled*/)
-        {
+        if (monitorInfo.sourceCamera == null || !monitorInfo.sourceCamera.isActiveAndEnabled)
             RemoveMonitor(monitorInfo);
-        }
     }
 
     void Update()
