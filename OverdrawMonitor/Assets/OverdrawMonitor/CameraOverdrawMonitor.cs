@@ -22,10 +22,10 @@ public class CameraOverdrawMonitor : MonoBehaviour
     const float SampleTime = 1f;
 
     // The number of shaded fragments in the last frame
-    public long TotalShadedFragments { get; private set; }
+    public long totalShadedFragments { get; private set; }
 
     // The overdraw ration in the last frame
-    public float OverdrawRatio { get; private set; }
+    public float overdrawRatio { get; private set; }
 
     // Number of shaded fragments in the measured time span
     public long IntervalShadedFragments { get; private set; }
@@ -75,9 +75,6 @@ public class CameraOverdrawMonitor : MonoBehaviour
     void OnDestroy()
     {
         ReleaseTexture();
-        if (_computeCamera != null)
-            ResetOriginalComputeCameraState();
-
         _resultBuffer?.Release();
     }
 
@@ -140,8 +137,6 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _computeCamera.clearFlags = CameraClearFlags.SolidColor;
         _computeCamera.backgroundColor = Color.clear;
 
-        _computeCamera.SetReplacementShader(_replacementShader, null);
-
         RecreateTexture(_sourceCamera);
         _computeCamera.targetTexture = _overdrawTexture;
 
@@ -163,12 +158,8 @@ public class CameraOverdrawMonitor : MonoBehaviour
         }
 
         CheckComputeCameraState(true);
-    }
 
-    void OnPostRender()
-    {
-        if (_computeCamera.targetTexture == _computeCameraOriginalTargetTexture)
-            return;
+        _computeCamera.RenderWithShader(_replacementShader, null);
 
         int kernel = _computeShader.FindKernel("CSMain");
 
@@ -188,25 +179,19 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _resultBuffer.GetData(_resultData);
 
         // Getting the results
-        TotalShadedFragments = 0;
+        totalShadedFragments = 0;
         foreach (int res in _resultData)
-            TotalShadedFragments += res;
+            totalShadedFragments += res;
 
-        OverdrawRatio = (float)TotalShadedFragments / (xGroups * GroupDimension * yGroups * GroupDimension);
+        overdrawRatio = (float)totalShadedFragments / (xGroups * GroupDimension * yGroups * GroupDimension);
 
-        _accumulatedIntervalFragments += TotalShadedFragments;
-        _accumulatedIntervalOverdraw += OverdrawRatio;
+        _accumulatedIntervalFragments += totalShadedFragments;
+        _accumulatedIntervalOverdraw += overdrawRatio;
         _intervalFrames++;
 
-        if (OverdrawRatio > MaxOverdraw)
-            MaxOverdraw = OverdrawRatio;
+        if (overdrawRatio > MaxOverdraw)
+            MaxOverdraw = overdrawRatio;
 
-        ResetOriginalComputeCameraState();
-    }
-
-    void ResetOriginalComputeCameraState()
-    {
-        _computeCamera.ResetReplacementShader();
         _computeCamera.targetTexture = _computeCameraOriginalTargetTexture;
         _computeCamera.clearFlags = _computeCameraOriginalClearFlags;
         _computeCamera.backgroundColor = _computeCameraOriginalClearColor;
