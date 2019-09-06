@@ -104,7 +104,7 @@ public class OverdrawToolWindow : EditorWindow
 
     bool IsReplacingMonitor(MonitorInfo monitorInfo)
     {
-        return monitorInfo.monitor.gameObject == monitorInfo.sourceCamera.gameObject;
+        return monitorInfo.sourceCamera != null && monitorInfo.sourceCamera.gameObject == monitorInfo.monitor.gameObject;
     }
 
     void Update()
@@ -167,20 +167,24 @@ public class OverdrawToolWindow : EditorWindow
 
             float totalAverage = 0f;
             float totalMax = 0f;
-            foreach (MonitorInfo monitorInfo in _monitors)
+
+            if (_monitors != null)
             {
-                using (new GUILayout.HorizontalScope())
+                foreach (MonitorInfo monitorInfo in _monitors)
                 {
-                    CameraOverdrawMonitor monitor = monitorInfo.monitor;
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        CameraOverdrawMonitor monitor = monitorInfo.monitor;
 
-                    GUILayout.Label(monitorInfo.sourceCamera.name);
-                    GUILayout.FlexibleSpace();
+                        GUILayout.Label(monitorInfo.sourceCamera.name);
+                        GUILayout.FlexibleSpace();
 
-                    float accumulatedAverageOverdraw = monitor.isActiveAndEnabled ? monitor.AccumulatedAverageOverdraw : 0f;
-                    GUILayout.Label(FormatResult(accumulatedAverageOverdraw, monitor.MaxOverdraw));
+                        float accumulatedAverageOverdraw = monitor.isActiveAndEnabled ? monitor.AccumulatedAverageOverdraw : 0f;
+                        GUILayout.Label(FormatResult(accumulatedAverageOverdraw, monitor.MaxOverdraw));
 
-                    totalMax += monitor.MaxOverdraw;
-                    totalAverage += accumulatedAverageOverdraw;
+                        totalMax += monitor.MaxOverdraw;
+                        totalAverage += accumulatedAverageOverdraw;
+                    }
                 }
             }
 
