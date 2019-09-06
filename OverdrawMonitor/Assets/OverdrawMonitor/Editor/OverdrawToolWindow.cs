@@ -2,16 +2,24 @@
 using UnityEditor;
 using UnityEngine;
 
+class MonitorInfo
+{
+    public Camera sourceCamera;
+    // public Canvas canvas;
+    public CameraOverdrawMonitor monitor;
+}
+
 public class OverdrawToolWindow : EditorWindow
 {
-    List<CameraOverdrawMonitor> _cameraOverdrawMonitors;
+    static bool isEnabled => _monitorsRoot != null;
+    static Transform _monitorsRoot;
+    List<MonitorInfo> _monitors;
 
     [MenuItem("Tools/Overdraw Tool")]
-    static void Show()
+    static void ShowWindow()
     {
         var window = GetWindow<OverdrawToolWindow>();
-        window._cameraOverdrawMonitors = new List<CameraOverdrawMonitor>();
-
+        window.Show();
         window.Focus();
     }
 
@@ -21,29 +29,80 @@ public class OverdrawToolWindow : EditorWindow
         return Application.isPlaying;
     }
 
+    void Init()
+    {
+        var window = GetWindow<OverdrawToolWindow>();
+        window.Show();
+        window._monitors = new List<MonitorInfo>();
+
+        var monitorsRootGo = new GameObject("OverdrawMonitorsRoot");
+        monitorsRootGo.hideFlags = HideFlags.DontSave;
+        _monitorsRoot = monitorsRootGo.transform;
+    }
+
+    void TryShutdown()
+    {
+        if (_monitors != null)
+        {
+            foreach (MonitorInfo monitorInfo in _monitors.ToArray())
+                RemoveMonitor(monitorInfo);
+            _monitors = null;
+        }
+
+        if (_monitorsRoot != null)
+        {
+            DestroyImmediate(_monitorsRoot.gameObject);
+            _monitorsRoot = null;
+        }
+    }
+
+    void AddMonitorForCamera(Camera camera)
+    {
+        var go = new GameObject("CameraOverdrawMonitor");
+        go.hideFlags = HideFlags.DontSave;
+        go.transform.SetParent(_monitorsRoot, false);
+        var monitor = go.AddComponent<CameraOverdrawMonitor>();
+        monitor.SetSourceCamera(camera);
+        _monitors.Add(new MonitorInfo
+        {
+            sourceCamera = camera,
+            monitor = monitor,
+        });
+    }
+
+    void RemoveMonitor(MonitorInfo monitorInfo)
+    {
+        // Todo: add canvas support
+
+        DestroyImmediate(monitorInfo.monitor.gameObject);
+        _monitors.Remove(monitorInfo);
+    }
+
+    void CheckMonitor(MonitorInfo monitorInfo)
+    {
+        if ((monitorInfo.sourceCamera == null || !monitorInfo.sourceCamera.isActiveAndEnabled)/* &&
+            monitorInfo.canvas == null || !monitorInfo.canvas.isActiveAndEnabled*/)
+        {
+            RemoveMonitor(monitorInfo);
+        }
+    }
+
     void Update()
     {
-        if (!Validate())
+        // Check shutdown if needed
+        if (!isEnabled || !Validate())
+            TryShutdown();
+        if (_monitors == null)
             return;
 
-        _cameraOverdrawMonitors.RemoveAll(m => m == null);
+        // Check existing monitors
+        foreach (MonitorInfo monitorInfo in _monitors.ToArray())
+            CheckMonitor(monitorInfo);
 
+        // Refresh monitors
         foreach (Camera activeCamera in Camera.allCameras)
-        {
-            if (!_cameraOverdrawMonitors.Exists(m => m.sourceCamera == activeCamera))
-            {
-                var cameraOverdrawMonitor = activeCamera.GetComponentInChildren<CameraOverdrawMonitor>(true);
-                if (cameraOverdrawMonitor == null)
-                {
-                    var go = new GameObject("CameraOverdrawMonitor");
-                    go.hideFlags = HideFlags.DontSave;
-                    go.transform.SetParent(activeCamera.transform, false);
-                    cameraOverdrawMonitor = go.AddComponent<CameraOverdrawMonitor>();
-                }
-                cameraOverdrawMonitor.SetSourceCamera(activeCamera);
-                _cameraOverdrawMonitors.Add(cameraOverdrawMonitor);
-            }
-        }
+            if (!_monitors.Exists(m => m.sourceCamera == activeCamera))
+                AddMonitorForCamera(activeCamera);
     }
 
     void OnGUI()
@@ -52,27 +111,55 @@ public class OverdrawToolWindow : EditorWindow
         {
             using (new GUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Reset stats"))
+                if (GUILayout.Button(isEnabled ? "Stop" : "Start", GUILayout.MaxWidth(100), GUILayout.MaxHeight(25)))
                 {
-                    foreach (CameraOverdrawMonitor cameraOverdrawMonitor in _cameraOverdrawMonitors)
-                        cameraOverdrawMonitor.ResetStats();
+                    if (!isEnabled && Validate())
+                        Init();
+                    else
+                        TryShutdown();
+                }
+
+                if (!isEnabled)
+                    return;
+
+                GUILayout.FlexibleSpace();
+
+                if (GUILayout.Button("Reset Max", GUILayout.Width(100), GUILayout.Height(20)))
+                {
+                    foreach (MonitorInfo monitorInfo in _monitors)
+                        if (monitorInfo.monitor != null)
+                            monitorInfo.monitor.ResetStats();
                 }
             }
 
-            for (int i = 0; i < _cameraOverdrawMonitors.Count; i++)
-            {
-                CameraOverdrawMonitor cameraOverdrawMonitor = _cameraOverdrawMonitors[i];
-                if (cameraOverdrawMonitor == null)
-                    continue;
+            GUILayout.Space(5);
 
+            float totalAverage = 0f;
+            float totalMax = 0f;
+            foreach (MonitorInfo monitorInfo in _monitors)
+            {
                 using (new GUILayout.HorizontalScope())
                 {
-                    GUILayout.Label("Max\n" + cameraOverdrawMonitor.MaxOverdraw.ToString("0.000"));
+                    CameraOverdrawMonitor monitor = monitorInfo.monitor;
+
+                    GUILayout.Label(monitorInfo.sourceCamera.name);
                     GUILayout.FlexibleSpace();
-                    float accumulatedAverageOverdraw = cameraOverdrawMonitor.isActiveAndEnabled ?
-                        cameraOverdrawMonitor.AccumulatedAverageOverdraw : 0f;
-                    GUILayout.Label("Average\n" + accumulatedAverageOverdraw.ToString("0.000"));
+
+                    float accumulatedAverageOverdraw = monitor.isActiveAndEnabled ? monitor.AccumulatedAverageOverdraw : 0f;
+                    GUILayout.Label(FormatResult(accumulatedAverageOverdraw, monitor.MaxOverdraw));
+
+                    totalMax += monitor.MaxOverdraw;
+                    totalAverage += accumulatedAverageOverdraw;
                 }
+            }
+
+            GUILayout.Space(5);
+
+            using (new GUILayout.HorizontalScope())
+            {
+                GUILayout.Label("TOTAL");
+                GUILayout.FlexibleSpace();
+                GUILayout.Label(FormatResult(totalAverage, totalMax));
             }
         }
         else
@@ -82,4 +169,10 @@ public class OverdrawToolWindow : EditorWindow
 
         Repaint();
     }
+
+    string FormatResult(float average, float max)
+    {
+        return $"{average:N3}\tMax: {max:N3}";
+    }
 }
+

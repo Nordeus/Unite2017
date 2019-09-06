@@ -21,8 +21,6 @@ public class CameraOverdrawMonitor : MonoBehaviour
     const int DataSize = DataDimension * DataDimension;
     const float SampleTime = 1f;
 
-    public Camera sourceCamera => _sourceCamera;
-
     // The number of shaded fragments in the last frame
     public long TotalShadedFragments { get; private set; }
 
@@ -82,6 +80,15 @@ public class CameraOverdrawMonitor : MonoBehaviour
     public void SetSourceCamera(Camera sourceCamera)
     {
         _sourceCamera = sourceCamera;
+    }
+
+    public void ResetStats()
+    {
+        _accumulatedIntervalOverdraw = 0;
+        _accumulatedIntervalFragments = 0;
+        _intervalTime = 0;
+        _intervalFrames = 0;
+        MaxOverdraw = 0;
     }
 
     void RecreateTexture(Camera main)
@@ -182,14 +189,5 @@ public class CameraOverdrawMonitor : MonoBehaviour
 
         _computeCamera.enabled = false;
         _computeCamera.targetTexture = null;
-    }
-
-    public void ResetStats()
-    {
-        _accumulatedIntervalOverdraw = 0;
-        _accumulatedIntervalFragments = 0;
-        _intervalTime = 0;
-        _intervalFrames = 0;
-        MaxOverdraw = 0;
     }
 }
