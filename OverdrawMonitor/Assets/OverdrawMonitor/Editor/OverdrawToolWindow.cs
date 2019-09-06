@@ -1,19 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-class MonitorInfo
-{
-    public Camera sourceCamera;
-    public CameraOverdrawMonitor monitor;
-}
-
 public class OverdrawToolWindow : EditorWindow
 {
-    bool isEnabled => _monitorsRoot != null;
-    Transform _monitorsRoot;
-    List<MonitorInfo> _monitors;
-    bool _replacing;
+    bool isEnabled => _monitors != null && Application.isPlaying;
+    List<CameraOverdrawMonitor> _monitors;
 
     [MenuItem("Tools/Overdraw Tool")]
     static void ShowWindow()
@@ -23,117 +16,70 @@ public class OverdrawToolWindow : EditorWindow
         window.Focus();
     }
 
-    [MenuItem("Tools/Overdraw Tool", true)]
-    static bool Validate()
-    {
-        return Application.isPlaying;
-    }
-
+    // Todo: fix auto start!!!
     void Init()
     {
-        _monitors = new List<MonitorInfo>();
-
-        var monitorsRootGo = new GameObject("OverdrawMonitorsRoot");
-        monitorsRootGo.hideFlags = HideFlags.DontSave;
-        _monitorsRoot = monitorsRootGo.transform;
+        _monitors = new List<CameraOverdrawMonitor>();
     }
 
     void TryShutdown()
     {
-        if (_monitors != null)
-        {
-            foreach (MonitorInfo monitorInfo in _monitors.ToArray())
-                RemoveMonitor(monitorInfo);
-            _monitors = null;
-        }
+        if (_monitors == null)
+            return;
 
-        if (_monitorsRoot != null)
-        {
-            DestroyImmediate(_monitorsRoot.gameObject);
-            _monitorsRoot = null;
-        }
-
-        _replacing = false;
+        foreach (CameraOverdrawMonitor monitor in _monitors.ToArray())
+            RemoveMonitor(monitor);
+        _monitors = null;
     }
 
     void AddMonitorForCamera(Camera camera)
     {
-        GameObject go;
-        Camera computeCamera;
-        if (_replacing)
-        {
-            go = camera.gameObject;
-            computeCamera = camera;
-        }
-        else
-        {
-            go = new GameObject("CameraOverdrawMonitor");
-            go.hideFlags = HideFlags.DontSave;
-            go.transform.SetParent(_monitorsRoot, false);
-            computeCamera = go.AddComponent<Camera>();
-        }
+        // Todo: create separate object in root object for monitor components - no need to use source camera objects
 
-        var monitor = go.AddComponent<CameraOverdrawMonitor>();
-        monitor.SetCameras(camera, computeCamera);
-
-        _monitors.Add(new MonitorInfo
-        {
-            sourceCamera = camera,
-            monitor = monitor,
-        });
+        var monitor = camera.gameObject.AddComponent<CameraOverdrawMonitor>();
+        monitor.SetComputeCamera(camera);
+        _monitors.Add(monitor);
     }
 
-    void RemoveMonitor(MonitorInfo monitorInfo)
+    void RemoveMonitor(CameraOverdrawMonitor monitor)
     {
-        CameraOverdrawMonitor monitor = monitorInfo.monitor;
         if (monitor != null)
-        {
-            if (IsReplacingMonitor(monitorInfo))
-                DestroyImmediate(monitor);
-            else
-                DestroyImmediate(monitor.gameObject);
-        }
-        _monitors.Remove(monitorInfo);
-    }
-
-    void CheckMonitor(MonitorInfo monitorInfo)
-    {
-        if (monitorInfo.sourceCamera == null || !monitorInfo.sourceCamera.isActiveAndEnabled)
-            RemoveMonitor(monitorInfo);
-    }
-
-    bool IsReplacingMonitor(MonitorInfo monitorInfo)
-    {
-        return monitorInfo.sourceCamera != null && monitorInfo.sourceCamera.gameObject == monitorInfo.monitor.gameObject;
+            DestroyImmediate(monitor);
+        _monitors.Remove(monitor);
     }
 
     void Update()
     {
         // Check shutdown if needed
-        if (!isEnabled || !Validate())
+        if (!isEnabled)
+        {
             TryShutdown();
-        if (_monitors == null)
             return;
+        }
 
-        // Check existing monitors
-        foreach (MonitorInfo monitorInfo in _monitors.ToArray())
-            CheckMonitor(monitorInfo);
+        Camera[] activeCameras = Camera.allCameras;
+
+        // Remove expired monitors
+        _monitors.RemoveAll(m => m == null);
+        foreach (CameraOverdrawMonitor monitor in _monitors.ToArray())
+            if (!Array.Exists(activeCameras, c => monitor.GetComponent<Camera>() == c))
+                RemoveMonitor(monitor);
 
         // Refresh monitors
-        foreach (Camera activeCamera in Camera.allCameras)
-            if (!_monitors.Exists(m => m.sourceCamera == activeCamera))
+        foreach (Camera activeCamera in activeCameras)
+            if (!_monitors.Exists(m => m.GetComponent<Camera>() == activeCamera))
                 AddMonitorForCamera(activeCamera);
     }
 
     void OnGUI()
     {
-        if (Validate())
+        if (Application.isPlaying)
         {
             using (new GUILayout.HorizontalScope())
             {
                 if (GUILayout.Button(isEnabled ? "Stop" : "Start", GUILayout.MaxWidth(100), GUILayout.MaxHeight(25)))
                 {
-                    if (!isEnabled && Validate())
+                    if (!isEnabled)
                         Init();
                     else
                         TryShutdown();
@@ -146,21 +92,10 @@ public class OverdrawToolWindow : EditorWindow
 
                 if (GUILayout.Button("Reset Max", GUILayout.Width(100), GUILayout.Height(20)))
                 {
-                    foreach (MonitorInfo monitorInfo in _monitors)
-                        if (monitorInfo.monitor != null)
-                            monitorInfo.monitor.ResetStats();
+                    foreach (CameraOverdrawMonitor monitor in _monitors)
+                        if (monitor != null)
+                            monitor.ResetStats();
                 }
-            }
-
-            GUILayout.Space(5);
-
-            bool newReplacing = GUILayout.Toggle(_replacing, "Replacing shader for cameras (for Canvas cameras)");
-            if (newReplacing != _replacing)
-            {
-                TryShutdown();
-                Init();
-                _replacing = newReplacing;
-                return;
             }
 
             GUILayout.Space(5);
@@ -170,13 +105,11 @@ public class OverdrawToolWindow : EditorWindow
 
             if (_monitors != null)
             {
-                foreach (MonitorInfo monitorInfo in _monitors)
+                foreach (CameraOverdrawMonitor monitor in _monitors)
                 {
                     using (new GUILayout.HorizontalScope())
                     {
-                        CameraOverdrawMonitor monitor = monitorInfo.monitor;
-
-                        GUILayout.Label(monitorInfo.sourceCamera.name);
+                        GUILayout.Label(monitor.gameObject.name);
                         GUILayout.FlexibleSpace();
 
                         float accumulatedAverageOverdraw = monitor.isActiveAndEnabled ? monitor.AccumulatedAverageOverdraw : 0f;
