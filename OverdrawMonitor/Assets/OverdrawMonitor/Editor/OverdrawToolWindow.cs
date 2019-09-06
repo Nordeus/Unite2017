@@ -8,8 +8,6 @@ class MonitorInfo
     public CameraOverdrawMonitor monitor;
 }
 
-// Todo: remove replacement mode - or do it for each cameras as it can break render texture mode
-
 public class OverdrawToolWindow : EditorWindow
 {
     bool isEnabled => _monitorsRoot != null;

@@ -52,8 +52,9 @@ public class CameraOverdrawMonitor : MonoBehaviour
     float _accumulatedIntervalOverdraw;
     float _intervalTime;
     long _intervalFrames;
-    CameraClearFlags _sourceCameraClearFlags;
-    Color _sourceCameraClearColor;
+    CameraClearFlags _computeCameraOriginalClearFlags;
+    Color _computeCameraOriginalClearColor;
+    RenderTexture _computeCameraOriginalTargetTexture;
 
     void Awake()
     {
@@ -129,8 +130,10 @@ public class CameraOverdrawMonitor : MonoBehaviour
 
         _computeCamera.CopyFrom(_sourceCamera);
 
-        _sourceCameraClearFlags = _sourceCamera.clearFlags;
-        _sourceCameraClearColor = _sourceCamera.backgroundColor;
+        _computeCameraOriginalClearFlags = _computeCamera.clearFlags;
+        _computeCameraOriginalClearColor = _computeCamera.backgroundColor;
+        _computeCameraOriginalTargetTexture = _computeCamera.targetTexture;
+
         _computeCamera.clearFlags = CameraClearFlags.SolidColor;
         _computeCamera.backgroundColor = Color.clear;
 
@@ -196,9 +199,9 @@ public class CameraOverdrawMonitor : MonoBehaviour
             MaxOverdraw = OverdrawRatio;
 
         CheckComputeCameraState(false);
-        _computeCamera.targetTexture = null;
-        _computeCamera.clearFlags = _sourceCameraClearFlags;
-        _computeCamera.backgroundColor = _sourceCameraClearColor;
+        _computeCamera.targetTexture = _computeCameraOriginalTargetTexture;
+        _computeCamera.clearFlags = _computeCameraOriginalClearFlags;
+        _computeCamera.backgroundColor = _computeCameraOriginalClearColor;
     }
 
     void CheckComputeCameraState(bool needActive)
