@@ -1,4 +1,4 @@
-# Unite2017
+# Todos
 
--- Todo: make replacing mode full functioned, considering any post-effects in original cameras.
+* Make replacing mode full functioned, considering any post-effects in original cameras.
 The goal is to leave only one mode: replacing.
