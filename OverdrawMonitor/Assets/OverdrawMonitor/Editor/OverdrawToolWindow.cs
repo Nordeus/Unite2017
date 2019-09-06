@@ -8,6 +8,10 @@ class MonitorInfo
     public CameraOverdrawMonitor monitor;
 }
 
+// Todo: add ability to use overdraw tool on source camera
+// I.e. source camera and compute camera can be the same. It need for canvases.
+// Можно сделать галку возле камеры на выводе результатов, она позволит менять способ мониторинга: через отдельную камеру или заменить шейдер на текущей
+
 public class OverdrawToolWindow : EditorWindow
 {
     bool isEnabled => _monitorsRoot != null;
