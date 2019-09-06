@@ -52,6 +52,8 @@ public class CameraOverdrawMonitor : MonoBehaviour
     float _accumulatedIntervalOverdraw;
     float _intervalTime;
     long _intervalFrames;
+    CameraClearFlags _sourceCameraClearFlags;
+    Color _sourceCameraClearColor;
 
     void Awake()
     {
@@ -62,9 +64,6 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _replacementShader = Shader.Find("Debug/OverdrawInt");
         Shader.SetGlobalFloat("OverdrawFragmentWeight", 1f / (GroupDimension * GroupDimension));
 
-        _computeCamera = gameObject.AddComponent<Camera>();
-        _computeCamera.enabled = false;
-
         _inputData = new int[DataSize];
         _resultData = new int[DataSize];
         for (int i = 0; i < _inputData.Length; i++)
@@ -73,13 +72,18 @@ public class CameraOverdrawMonitor : MonoBehaviour
 
     void OnDestroy()
     {
+        if (_computeCamera != null)
+            _computeCamera.ResetReplacementShader();
         ReleaseTexture();
         _resultBuffer?.Release();
     }
 
-    public void SetSourceCamera(Camera sourceCamera)
+    public void SetCameras(Camera sourceCamera, Camera computeCamera)
     {
         _sourceCamera = sourceCamera;
+        _computeCamera = computeCamera;
+
+        CheckComputeCameraState(false);
     }
 
     public void ResetStats()
@@ -120,12 +124,16 @@ public class CameraOverdrawMonitor : MonoBehaviour
 
     void LateUpdate()
     {
-        if (_sourceCamera == null)
+        if (_sourceCamera == null || _computeCamera == null)
             return;
 
         _computeCamera.CopyFrom(_sourceCamera);
+
+        _sourceCameraClearFlags = _sourceCamera.clearFlags;
+        _sourceCameraClearColor = _sourceCamera.backgroundColor;
         _computeCamera.clearFlags = CameraClearFlags.SolidColor;
-        _computeCamera.backgroundColor = Color.black;
+        _computeCamera.backgroundColor = Color.clear;
+
         _computeCamera.SetReplacementShader(_replacementShader, null);
 
         RecreateTexture(_sourceCamera);
@@ -148,7 +156,7 @@ public class CameraOverdrawMonitor : MonoBehaviour
             _intervalFrames = 0;
         }
 
-        _computeCamera.enabled = true;
+        CheckComputeCameraState(true);
     }
 
     void OnPostRender()
@@ -187,7 +195,14 @@ public class CameraOverdrawMonitor : MonoBehaviour
         if (OverdrawRatio > MaxOverdraw)
             MaxOverdraw = OverdrawRatio;
 
-        _computeCamera.enabled = false;
+        CheckComputeCameraState(false);
         _computeCamera.targetTexture = null;
+        _computeCamera.clearFlags = _sourceCameraClearFlags;
+        _computeCamera.backgroundColor = _sourceCameraClearColor;
+    }
+
+    void CheckComputeCameraState(bool needActive)
+    {
+        _computeCamera.enabled = needActive || _sourceCamera == _computeCamera;
     }
 }

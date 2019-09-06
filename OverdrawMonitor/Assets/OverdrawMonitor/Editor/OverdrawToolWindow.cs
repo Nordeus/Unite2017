@@ -17,6 +17,7 @@ public class OverdrawToolWindow : EditorWindow
     bool isEnabled => _monitorsRoot != null;
     Transform _monitorsRoot;
     List<MonitorInfo> _monitors;
+    bool _replacing;
 
     [MenuItem("Tools/Overdraw Tool")]
     static void ShowWindow()
@@ -34,9 +35,7 @@ public class OverdrawToolWindow : EditorWindow
 
     void Init()
     {
-        var window = GetWindow<OverdrawToolWindow>();
-        window.Show();
-        window._monitors = new List<MonitorInfo>();
+        _monitors = new List<MonitorInfo>();
 
         var monitorsRootGo = new GameObject("OverdrawMonitorsRoot");
         monitorsRootGo.hideFlags = HideFlags.DontSave;
@@ -57,15 +56,30 @@ public class OverdrawToolWindow : EditorWindow
             DestroyImmediate(_monitorsRoot.gameObject);
             _monitorsRoot = null;
         }
+
+        _replacing = false;
     }
 
     void AddMonitorForCamera(Camera camera)
     {
-        var go = new GameObject("CameraOverdrawMonitor");
-        go.hideFlags = HideFlags.DontSave;
-        go.transform.SetParent(_monitorsRoot, false);
+        GameObject go;
+        Camera computeCamera;
+        if (_replacing)
+        {
+            go = camera.gameObject;
+            computeCamera = camera;
+        }
+        else
+        {
+            go = new GameObject("CameraOverdrawMonitor");
+            go.hideFlags = HideFlags.DontSave;
+            go.transform.SetParent(_monitorsRoot, false);
+            computeCamera = go.AddComponent<Camera>();
+        }
+
         var monitor = go.AddComponent<CameraOverdrawMonitor>();
-        monitor.SetSourceCamera(camera);
+        monitor.SetCameras(camera, computeCamera);
+
         _monitors.Add(new MonitorInfo
         {
             sourceCamera = camera,
@@ -75,9 +89,14 @@ public class OverdrawToolWindow : EditorWindow
 
     void RemoveMonitor(MonitorInfo monitorInfo)
     {
-        // Todo: add canvas support
-
-        DestroyImmediate(monitorInfo.monitor.gameObject);
+        CameraOverdrawMonitor monitor = monitorInfo.monitor;
+        if (monitor != null)
+        {
+            if (IsReplacingMonitor(monitorInfo))
+                DestroyImmediate(monitor);
+            else
+                DestroyImmediate(monitor.gameObject);
+        }
         _monitors.Remove(monitorInfo);
     }
 
@@ -85,6 +104,11 @@ public class OverdrawToolWindow : EditorWindow
     {
         if (monitorInfo.sourceCamera == null || !monitorInfo.sourceCamera.isActiveAndEnabled)
             RemoveMonitor(monitorInfo);
+    }
+
+    bool IsReplacingMonitor(MonitorInfo monitorInfo)
+    {
+        return monitorInfo.monitor.gameObject == monitorInfo.sourceCamera.gameObject;
     }
 
     void Update()
@@ -130,6 +154,17 @@ public class OverdrawToolWindow : EditorWindow
                         if (monitorInfo.monitor != null)
                             monitorInfo.monitor.ResetStats();
                 }
+            }
+
+            GUILayout.Space(5);
+
+            bool newReplacing = GUILayout.Toggle(_replacing, "Replacing shader for cameras (for Canvas cameras)");
+            if (newReplacing != _replacing)
+            {
+                TryShutdown();
+                Init();
+                _replacing = newReplacing;
+                return;
             }
 
             GUILayout.Space(5);
