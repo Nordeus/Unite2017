@@ -40,7 +40,6 @@ public class CameraOverdrawMonitor : MonoBehaviour
     // The maximum overdraw measured
     public float MaxOverdraw { get; private set; }
 
-    Camera _sourceCamera;
     Camera _computeCamera;
     RenderTexture _overdrawTexture;
     ComputeShader _computeShader;
@@ -52,10 +51,6 @@ public class CameraOverdrawMonitor : MonoBehaviour
     float _accumulatedIntervalOverdraw;
     float _intervalTime;
     long _intervalFrames;
-    CameraClearFlags _computeCameraOriginalClearFlags;
-    Color _computeCameraOriginalClearColor;
-    RenderTexture _computeCameraOriginalTargetTexture;
-    bool _computeCameraOriginalEnabled;
 
     void Awake()
     {
@@ -78,12 +73,9 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _resultBuffer?.Release();
     }
 
-    public void SetCameras(Camera sourceCamera, Camera computeCamera)
+    public void SetComputeCamera(Camera computeCamera)
     {
-        _sourceCamera = sourceCamera;
         _computeCamera = computeCamera;
-
-        CheckComputeCameraState(false);
     }
 
     public void ResetStats()
@@ -104,11 +96,9 @@ public class CameraOverdrawMonitor : MonoBehaviour
         }
     }
 
+    // Todo: refactor ReleaseTexture
     void ReleaseTexture()
     {
-        if (_computeCamera != null)
-            _computeCamera.targetTexture = _computeCameraOriginalTargetTexture;
-
         if (_overdrawTexture != null)
         {
             _overdrawTexture.Release();
@@ -124,24 +114,19 @@ public class CameraOverdrawMonitor : MonoBehaviour
 
     void LateUpdate()
     {
-        if (_sourceCamera == null || _computeCamera == null)
+        if (_computeCamera == null)
             return;
 
-        _computeCamera.CopyFrom(_sourceCamera);
-
-        _computeCameraOriginalClearFlags = _computeCamera.clearFlags;
-        _computeCameraOriginalClearColor = _computeCamera.backgroundColor;
-        _computeCameraOriginalTargetTexture = _computeCamera.targetTexture;
-        _computeCameraOriginalEnabled = _computeCamera.enabled;
+        CameraClearFlags originalClearFlags = _computeCamera.clearFlags;
+        Color originalClearColor = _computeCamera.backgroundColor;
+        RenderTexture originalTargetTexture = _computeCamera.targetTexture;
+        bool originalIsCameraEnabled = _computeCamera.enabled;
 
         _computeCamera.clearFlags = CameraClearFlags.SolidColor;
         _computeCamera.backgroundColor = Color.clear;
 
-        RecreateTexture(_sourceCamera);
+        RecreateTexture(_computeCamera);
         _computeCamera.targetTexture = _overdrawTexture;
-
-        Transform sourceCameraNode = _sourceCamera.transform;
-        transform.SetPositionAndRotation(sourceCameraNode.position, sourceCameraNode.rotation);
 
         _intervalTime += Time.deltaTime;
         if (_intervalTime > SampleTime)
@@ -157,7 +142,7 @@ public class CameraOverdrawMonitor : MonoBehaviour
             _intervalFrames = 0;
         }
 
-        CheckComputeCameraState(true);
+        _computeCamera.enabled = false;
 
         _computeCamera.RenderWithShader(_replacementShader, null);
 
@@ -192,15 +177,9 @@ public class CameraOverdrawMonitor : MonoBehaviour
         if (overdrawRatio > MaxOverdraw)
             MaxOverdraw = overdrawRatio;
 
-        _computeCamera.targetTexture = _computeCameraOriginalTargetTexture;
-        _computeCamera.clearFlags = _computeCameraOriginalClearFlags;
-        _computeCamera.backgroundColor = _computeCameraOriginalClearColor;
-
-        CheckComputeCameraState(_computeCameraOriginalEnabled);
-    }
-
-    void CheckComputeCameraState(bool needActive)
-    {
-        _computeCamera.enabled = needActive || _sourceCamera == _computeCamera;
+        _computeCamera.targetTexture = originalTargetTexture;
+        _computeCamera.clearFlags = originalClearFlags;
+        _computeCamera.backgroundColor = originalClearColor;
+        _computeCamera.enabled = originalIsCameraEnabled;
     }
 }
