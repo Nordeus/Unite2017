@@ -19,7 +19,7 @@ public class OverdrawMonitorWindow : EditorWindow
             throw new Exception("Attempt to start overdraw monitor twice");
 
         _monitorsGo = new GameObject("OverdrawMonitor");
-        _monitorsGo.hideFlags = HideFlags.DontSave;
+        _monitorsGo.hideFlags = HideFlags.HideAndDontSave;
     }
 
     void TryShutdown()
