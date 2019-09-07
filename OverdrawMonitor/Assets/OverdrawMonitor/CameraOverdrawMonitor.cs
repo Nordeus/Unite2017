@@ -13,7 +13,6 @@
 
 using UnityEngine;
 
-[DisallowMultipleComponent]
 public class CameraOverdrawMonitor : MonoBehaviour
 {
     const int GroupDimension = 32;
@@ -21,26 +20,28 @@ public class CameraOverdrawMonitor : MonoBehaviour
     const int DataSize = DataDimension * DataDimension;
     const float SampleTime = 1f;
 
+    public Camera targetCamera => _targetCamera;
+
     // The number of shaded fragments in the last frame
     public long totalShadedFragments { get; private set; }
 
-    // The overdraw ration in the last frame
+    // The overdraw ratio in the last frame
     public float overdrawRatio { get; private set; }
 
     // Number of shaded fragments in the measured time span
-    public long IntervalShadedFragments { get; private set; }
+    public long intervalShadedFragments { get; private set; }
 
     // The average number of shaded fragments in the measured time span
-    public float IntervalAverageShadedFragments { get; private set; }
+    public float intervalAverageShadedFragments { get; private set; }
 
     // The average overdraw in the measured time span
-    public float IntervalAverageOverdraw { get; private set; }
-    public float AccumulatedAverageOverdraw => _accumulatedIntervalOverdraw / _intervalFrames;
+    public float intervalAverageOverdraw { get; private set; }
+    public float accumulatedAverageOverdraw => _accumulatedIntervalOverdraw / _intervalFrames;
 
     // The maximum overdraw measured
-    public float MaxOverdraw { get; private set; }
+    public float maxOverdraw { get; private set; }
 
-    Camera _computeCamera;
+    Camera _targetCamera;
     RenderTexture _overdrawTexture;
     ComputeShader _computeShader;
     ComputeBuffer _resultBuffer;
@@ -62,9 +63,11 @@ public class CameraOverdrawMonitor : MonoBehaviour
         Shader.SetGlobalFloat("OverdrawFragmentWeight", 1f / (GroupDimension * GroupDimension));
 
         _inputData = new int[DataSize];
-        _resultData = new int[DataSize];
         for (int i = 0; i < _inputData.Length; i++)
             _inputData[i] = 0;
+
+        _resultData = new int[DataSize];
+        _resultBuffer = new ComputeBuffer(_resultData.Length, 4);
     }
 
     void OnDestroy()
@@ -73,9 +76,9 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _resultBuffer?.Release();
     }
 
-    public void SetComputeCamera(Camera computeCamera)
+    public void SetTargetCamera(Camera targetCamera)
     {
-        _computeCamera = computeCamera;
+        _targetCamera = targetCamera;
     }
 
     public void ResetStats()
@@ -84,19 +87,9 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _accumulatedIntervalFragments = 0;
         _intervalTime = 0;
         _intervalFrames = 0;
-        MaxOverdraw = 0;
+        maxOverdraw = 0;
     }
 
-    void RecreateTexture(Camera main)
-    {
-        if (_overdrawTexture == null || main.pixelWidth != _overdrawTexture.width || main.pixelHeight != _overdrawTexture.height)
-        {
-            ReleaseTexture();
-            _overdrawTexture = new RenderTexture(main.pixelWidth, main.pixelHeight, 24, RenderTextureFormat.RFloat);
-        }
-    }
-
-    // Todo: refactor ReleaseTexture
     void ReleaseTexture()
     {
         if (_overdrawTexture != null)
@@ -106,34 +99,33 @@ public class CameraOverdrawMonitor : MonoBehaviour
         }
     }
 
-    void RecreateComputeBuffer()
-    {
-        if (_resultBuffer == null)
-            _resultBuffer = new ComputeBuffer(_resultData.Length, 4);
-    }
-
     void LateUpdate()
     {
-        if (_computeCamera == null)
+        if (_targetCamera == null)
             return;
 
-        CameraClearFlags originalClearFlags = _computeCamera.clearFlags;
-        Color originalClearColor = _computeCamera.backgroundColor;
-        RenderTexture originalTargetTexture = _computeCamera.targetTexture;
-        bool originalIsCameraEnabled = _computeCamera.enabled;
+        CameraClearFlags originalClearFlags = _targetCamera.clearFlags;
+        Color originalClearColor = _targetCamera.backgroundColor;
+        RenderTexture originalTargetTexture = _targetCamera.targetTexture;
+        bool originalIsCameraEnabled = _targetCamera.enabled;
 
-        _computeCamera.clearFlags = CameraClearFlags.SolidColor;
-        _computeCamera.backgroundColor = Color.clear;
+        _targetCamera.clearFlags = CameraClearFlags.SolidColor;
+        _targetCamera.backgroundColor = Color.clear;
 
-        RecreateTexture(_computeCamera);
-        _computeCamera.targetTexture = _overdrawTexture;
+        // Recreate texture if needed
+        if (_overdrawTexture == null || _targetCamera.pixelWidth != _overdrawTexture.width || _targetCamera.pixelHeight != _overdrawTexture.height)
+        {
+            ReleaseTexture();
+            _overdrawTexture = new RenderTexture(_targetCamera.pixelWidth, _targetCamera.pixelHeight, 24, RenderTextureFormat.RFloat);
+        }
+        _targetCamera.targetTexture = _overdrawTexture;
 
         _intervalTime += Time.deltaTime;
         if (_intervalTime > SampleTime)
         {
-            IntervalShadedFragments = _accumulatedIntervalFragments;
-            IntervalAverageShadedFragments = (float)_accumulatedIntervalFragments / _intervalFrames;
-            IntervalAverageOverdraw = _accumulatedIntervalOverdraw / _intervalFrames;
+            intervalShadedFragments = _accumulatedIntervalFragments;
+            intervalAverageShadedFragments = (float)_accumulatedIntervalFragments / _intervalFrames;
+            intervalAverageOverdraw = _accumulatedIntervalOverdraw / _intervalFrames;
 
             _intervalTime -= SampleTime;
 
@@ -142,13 +134,11 @@ public class CameraOverdrawMonitor : MonoBehaviour
             _intervalFrames = 0;
         }
 
-        _computeCamera.enabled = false;
+        _targetCamera.enabled = false;
 
-        _computeCamera.RenderWithShader(_replacementShader, null);
+        _targetCamera.RenderWithShader(_replacementShader, null);
 
         int kernel = _computeShader.FindKernel("CSMain");
-
-        RecreateComputeBuffer();
 
         // Setting up the data
         _resultBuffer.SetData(_inputData);
@@ -174,12 +164,12 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _accumulatedIntervalOverdraw += overdrawRatio;
         _intervalFrames++;
 
-        if (overdrawRatio > MaxOverdraw)
-            MaxOverdraw = overdrawRatio;
+        if (overdrawRatio > maxOverdraw)
+            maxOverdraw = overdrawRatio;
 
-        _computeCamera.targetTexture = originalTargetTexture;
-        _computeCamera.clearFlags = originalClearFlags;
-        _computeCamera.backgroundColor = originalClearColor;
-        _computeCamera.enabled = originalIsCameraEnabled;
+        _targetCamera.targetTexture = originalTargetTexture;
+        _targetCamera.clearFlags = originalClearFlags;
+        _targetCamera.backgroundColor = originalClearColor;
+        _targetCamera.enabled = originalIsCameraEnabled;
     }
 }
