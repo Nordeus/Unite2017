@@ -158,7 +158,7 @@ public class CameraOverdrawMonitor : MonoBehaviour
         foreach (int res in _resultData)
             totalShadedFragments += res;
 
-        overdrawRatio = (float)totalShadedFragments / (xGroups * GroupDimension * yGroups * GroupDimension);
+        overdrawRatio = (float)totalShadedFragments / (Screen.width * Screen.height);
 
         _accumulatedIntervalFragments += totalShadedFragments;
         _accumulatedIntervalOverdraw += overdrawRatio;
