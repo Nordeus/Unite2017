@@ -22,7 +22,7 @@ public class CameraOverdrawMonitor : MonoBehaviour
     public Camera targetCamera => _targetCamera;
 
     public long fragmentsCount => isActiveAndEnabled ? _fragmentsCount : 0L;
-    public float fillRate => isActiveAndEnabled ? _fillRate : 0f;
+    public float overdrawRatio => isActiveAndEnabled ? _overdrawRatio : 0f;
 
     Camera _targetCamera;
     RenderTexture _overdrawTexture;
@@ -32,7 +32,7 @@ public class CameraOverdrawMonitor : MonoBehaviour
     int[] _inputData;
     int[] _resultData;
     long _fragmentsCount;
-    float _fillRate;
+    float _overdrawRatio;
 
     void Awake()
     {
@@ -115,7 +115,7 @@ public class CameraOverdrawMonitor : MonoBehaviour
         _fragmentsCount = 0;
         foreach (int res in _resultData)
             _fragmentsCount += res;
-        _fillRate = fragmentsCount / ((float)_overdrawTexture.width * _overdrawTexture.height);
+        _overdrawRatio = fragmentsCount / ((float)_overdrawTexture.width * _overdrawTexture.height);
 
         // Restore original params
         _targetCamera.targetTexture = originalTargetTexture;

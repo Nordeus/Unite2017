@@ -8,7 +8,7 @@ public class OverdrawMonitorWindow : EditorWindow
 {
     bool isEnabled => _monitorsGo != null && Application.isPlaying;
     GameObject _monitorsGo;
-    Dictionary<CameraOverdrawMonitor, CameraOverdrawStats> _globalMaxInfos;
+    Dictionary<CameraOverdrawMonitor, CameraOverdrawStats> _stats;
 
     [MenuItem("Tools/Overdraw Monitor")]
     static void ShowWindow()
@@ -23,7 +23,7 @@ public class OverdrawMonitorWindow : EditorWindow
 
         _monitorsGo = new GameObject("OverdrawMonitor");
         _monitorsGo.hideFlags = HideFlags.HideAndDontSave;
-        _globalMaxInfos = new Dictionary<CameraOverdrawMonitor, CameraOverdrawStats>();
+        _stats = new Dictionary<CameraOverdrawMonitor, CameraOverdrawStats>();
     }
 
     void TryShutdown()
@@ -32,7 +32,7 @@ public class OverdrawMonitorWindow : EditorWindow
             return;
 
         DestroyImmediate(_monitorsGo);
-        _globalMaxInfos = null;
+        _stats = null;
     }
 
     void Update()
@@ -103,12 +103,12 @@ public class OverdrawMonitorWindow : EditorWindow
 
             GUILayout.Space(5);
 
-            foreach (CameraOverdrawMonitor monitor in _globalMaxInfos.Keys.ToArray())
+            foreach (CameraOverdrawMonitor monitor in _stats.Keys.ToArray())
                 if (!Array.Exists(monitors, m => monitor))
-                    _globalMaxInfos.Remove(monitor);
+                    _stats.Remove(monitor);
 
             long gameViewArea = gameViewResolution.x * gameViewResolution.y;
-            float totalGlobalFillRate = 0f;
+            float totalGlobalOverdrawRatio = 0f;
             foreach (CameraOverdrawMonitor monitor in monitors)
             {
                 using (new GUILayout.HorizontalScope())
@@ -118,33 +118,33 @@ public class OverdrawMonitorWindow : EditorWindow
 
                     GUILayout.FlexibleSpace();
 
-                    float localFillRate = monitor.fillRate;
-                    float globalFillRate = monitor.fragmentsCount / (float)gameViewArea;
-                    totalGlobalFillRate += globalFillRate;
+                    float localOverdrawRatio = monitor.overdrawRatio;
+                    float globalOverdrawRatio = monitor.fragmentsCount / (float)gameViewArea;
+                    totalGlobalOverdrawRatio += globalOverdrawRatio;
 
-                    if (!_globalMaxInfos.TryGetValue(monitor, out CameraOverdrawStats globalMaxInfo))
+                    if (!_stats.TryGetValue(monitor, out CameraOverdrawStats monitorStats))
                     {
-                        globalMaxInfo = new CameraOverdrawStats();
-                        _globalMaxInfos.Add(monitor, globalMaxInfo);
+                        monitorStats = new CameraOverdrawStats();
+                        _stats.Add(monitor, monitorStats);
                     }
-                    globalMaxInfo.maxLocalFillRate = Math.Max(localFillRate, globalMaxInfo.maxLocalFillRate);
-                    globalMaxInfo.maxGlobalFillRate = Math.Max(globalFillRate, globalMaxInfo.maxGlobalFillRate);
+                    monitorStats.maxLocalOverdrawRatio = Math.Max(localOverdrawRatio, monitorStats.maxLocalOverdrawRatio);
+                    monitorStats.maxGlobalOverdrawRatio = Math.Max(globalOverdrawRatio, monitorStats.maxGlobalOverdrawRatio);
 
                     GUILayout.Label(FormatResult("Local: {0} / {1} \t Global: {2} / {3}",
-                        localFillRate, globalMaxInfo.maxLocalFillRate, globalFillRate, globalMaxInfo.maxGlobalFillRate));
+                        localOverdrawRatio, monitorStats.maxLocalOverdrawRatio, globalOverdrawRatio, monitorStats.maxGlobalOverdrawRatio));
                 }
             }
 
             GUILayout.Space(5);
 
-            float maxTotalGlobalFillRate = 0f;
-            foreach (CameraOverdrawStats stat in _globalMaxInfos.Values)
-                maxTotalGlobalFillRate += stat.maxGlobalFillRate;
+            float maxTotalGlobalOverdrawRatio = 0f;
+            foreach (CameraOverdrawStats stat in _stats.Values)
+                maxTotalGlobalOverdrawRatio += stat.maxGlobalOverdrawRatio;
             using (new GUILayout.HorizontalScope())
             {
                 GUILayout.Label("TOTAL");
                 GUILayout.FlexibleSpace();
-                GUILayout.Label(FormatResult("Global: {0} / {1}", totalGlobalFillRate, maxTotalGlobalFillRate));
+                GUILayout.Label(FormatResult("Global: {0} / {1}", totalGlobalOverdrawRatio, maxTotalGlobalOverdrawRatio));
             }
         }
         else
@@ -157,7 +157,7 @@ public class OverdrawMonitorWindow : EditorWindow
 
     void ResetStats()
     {
-        _globalMaxInfos.Clear();
+        _stats.Clear();
     }
 
     string FormatResult(string format, params float[] args)
@@ -177,6 +177,6 @@ public class OverdrawMonitorWindow : EditorWindow
 
 class CameraOverdrawStats
 {
-    public float maxLocalFillRate;
-    public float maxGlobalFillRate;
+    public float maxLocalOverdrawRatio;
+    public float maxGlobalOverdrawRatio;
 }
