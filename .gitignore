@@ -1,0 +1,16 @@
+**/.DS_Store/
+**/.vs/
+**/.idea/
+**/obj/
+**/bin/
+**/Jetbrains*
+
+**/Library/
+**/Temp/
+**/Build/
+**/Logs/
+
+*.sln
+*.user
+*.csproj
+*.userprefs
