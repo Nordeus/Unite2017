@@ -114,13 +114,14 @@ public class OverdrawMonitor : MonoBehaviour
 #if UNITY_EDITOR
 	public void SubscribeToPlayStateChanged()
 	{
-		UnityEditor.EditorApplication.playmodeStateChanged -= OnPlayStateChanged;
-		UnityEditor.EditorApplication.playmodeStateChanged += OnPlayStateChanged;
+		UnityEditor.EditorApplication.playModeStateChanged -= OnPlayStateChanged;
+		UnityEditor.EditorApplication.playModeStateChanged += OnPlayStateChanged;
 	}
 
-	private static void OnPlayStateChanged()
+	private static void OnPlayStateChanged(UnityEditor.PlayModeStateChange mode)
 	{
-		if (!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode && UnityEditor.EditorApplication.isPlaying)
+		//if (!UnityEditor.EditorApplication.isPlayingOrWillChangePlaymode && UnityEditor.EditorApplication.isPlaying)
+        if(UnityEditor.PlayModeStateChange.ExitingEditMode == mode)
 		{
 			if (instance != null) instance.OnDisable();
 		}

@@ -12,7 +12,12 @@ public class OverdrawToolWindow : EditorWindow
 		window.Focus();
 	}
 
-	public void OnGUI()
+    public void OnDestroy()
+    {
+        OverdrawMonitor.Instance.Stop();
+    }
+
+    public void OnGUI()
 	{
 		using (new GUILayout.HorizontalScope())
 		{
